@@ -17,8 +17,8 @@ This differs from C{twisted.web.http} in these ways:
 
 
 from twisted.internet import basic
-#from twisted.web.http_headers import Headers
-from zope.interface import Interface, Attribute
+from twisted.web.http_headers import Headers
+from zope.interface import Interface
 
 
 
@@ -31,6 +31,39 @@ class HTTPServerProtocol(basic.LineReceiver):
         """
         self._handleRequest = IRequestHandler(handleRequest)
 
+        # Note: Only lineReceived should touch this:
+        self._pendingHead = None
+
+
+    def lineReceived(self, line):
+
+        if self._pendingHead is None:
+            try:
+                [method, urlpath, version] = line.split()
+            except ValueError:
+                self._send400()
+                return
+
+            headers = Headers()
+
+            self._pendingHead = (method, urlpath, version, headers)
+
+        elif line == '':
+            (method, urlpath, version, headers) = self._pendingHead
+            self._pendingHead = None
+
+            self._dispatchRequestHead(method, urlpath, version, headers)
+        else:
+            headers = self._pendingHead[3]
+            self._headerLineReceived(headers, line)
+
+
+    def _headerLineReceived(self, headers, line):
+        raise NotImplementedError(repr((self._headerLineReceived, headers, line)))
+
+
+    def _disaptchRequestHead(self, method, urlpath, version, headers):
+        raise NotImplementedError(repr((self._dispatchRequestHead, method, urlpath, version, headers)))
 
 
 
