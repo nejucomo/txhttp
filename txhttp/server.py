@@ -18,7 +18,7 @@ This differs from C{twisted.web.http} in these ways:
 
 from twisted.internet import basic
 from twisted.web.http_headers import Headers
-from zope.interface import Interface
+from zope.interface import Interface, implements
 
 
 
@@ -31,7 +31,7 @@ class HTTPServerProtocol(basic.LineReceiver):
         """
         self._handleRequest = IRequestHandler(handleRequest)
 
-        # Note: Only lineReceived should touch this:
+        # Note: Only self.lineReceived should touch this:
         self._pendingHead = None
 
 
@@ -53,24 +53,29 @@ class HTTPServerProtocol(basic.LineReceiver):
             self._pendingHead = None
 
             self._dispatchRequestHead(method, urlpath, version, headers)
+
         else:
             headers = self._pendingHead[3]
             self._headerLineReceived(headers, line)
 
 
     def _headerLineReceived(self, headers, line):
-        raise NotImplementedError(repr((self._headerLineReceived, headers, line)))
+        # BUG: This does not handle multiline headers; see RFC 822 and
+        # twisted.web.http.HTTPChannel.lineReceived.
 
+        header, data = line.split(':', 1)
+        header = header.lower()
+        data = data.strip()
 
     def _disaptchRequestHead(self, method, urlpath, version, headers):
         raise NotImplementedError(repr((self._dispatchRequestHead, method, urlpath, version, headers)))
 
 
 
-
+### Interfaces for HTTP serverside request handling:
 class IRequestHandler(Interface):
     """
-    Implementations respond to HTTP requests.
+    I handle HTTP requests.
     """
     def requestHeadReceived(responder, method, path, version, headers):
         """
@@ -96,7 +101,7 @@ class IRequestHandler(Interface):
 
 class IResponder(Interface):
     """
-    Implementations are used to respond to a single HTTP request.
+    I respond to a single HTTP request.
     """
     def sendResponseHead(statusCode, statusMessage, headers):
         """
@@ -106,3 +111,45 @@ class IResponder(Interface):
         @return: A C{Deferred} which fires to an C{IConsumer} to consume
                  the raw response body bytes.
         """
+
+
+
+### Utilities for defining HTTP server side request handling:
+class RequestHandlerDelegate(object):
+    """
+    I implement IRequestHandler by delegating to a function.
+
+    Useful as a decorator.
+    """
+    implements(IRequestHandler)
+
+    def __init__(self, f):
+        """
+        @type f: a function with the same interface as IRequestHandler.requestHeadReceived
+        """
+        self.delegate = f
+
+    def requestHeadReceived(self, responder, method, path, version, headers):
+        return self.delegate(responder, method, path, version, headers)
+
+
+
+class ResponderDelegate(object):
+    """
+    I implement IResponder by delegating to a function.
+
+    Useful as a decorator.
+    """
+    implements(IResponder)
+
+    def __init__(self, f):
+        """
+        @type f: a function with the same interface as IResponder.sendResponseHead
+        """
+        self.delegate = f
+
+    def sendResponseHead(self, statusCode, statusMessage, headers):
+        return self.delegate(statusCode, statusMessage, headers)
+
+
+
