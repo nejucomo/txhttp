@@ -21,7 +21,8 @@ This differs from C{twisted.web.http} in these ways:
 
 
 from cStringIO import StringIO
-from twisted.internet import basic, defer
+from twisted.internet import defer
+from twisted.protocols import basic
 from twisted.internet.interfaces import IConsumer
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
@@ -135,7 +136,7 @@ class IgnoreBody(object):
         self.done = defer.Deferred()
 
     def registerProducer(self, producer, streaming):
-        assert streaming, 'Only IPushProducer is supported, not %r' % (producer,)
+        assert streaming == True, 'Only IPushProducer is supported, not %r' % (producer,)
 
     def unregisterProducer(self):
         self.done.callback(None)
