@@ -15,6 +15,10 @@ This differs from C{twisted.web.http} in these ways:
 3. It uses a "staged" interface rather than monolithic classes.
 """
 
+# TODO: Persistent connections, pipelining, and 100-continue as per
+# RFC2616 section 8:
+# http://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html
+
 
 from cStringIO import StringIO
 from twisted.internet import basic, defer
