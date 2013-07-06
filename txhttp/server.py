@@ -124,8 +124,8 @@ class RequestHandlerDelegate(object):
         """
         self.delegate = f
 
-    def requestReceived(self, responder, method, path, version, headers):
-        return self.delegate(responder, method, path, version, headers)
+    def requestReceived(self, method, path, version, headers, body):
+        return self.delegate(method, path, version, headers, body)
 
 
 ### Common body consumers:
