@@ -1,6 +1,34 @@
 from twisted.trial import unittest
 from twisted.internet.defer import succeed
+from twisted.web.http_headers import Headers
+from twisted.web.iweb import IBodyProducer
 from txhttp import server
+from zope.interface import implements
+
+
+class ResponseTest(unittest.TestCase):
+
+    class FakeBodyProducer(object):
+        implements(IBodyProducer)
+
+
+    def test_validResponseConstruction(self):
+        # Succeeds if no exception is raised:
+        server.Response(200, 'ok', Headers(), self.FakeBodyProducer())
+
+    def test_invalidResponseConstructionWithNonHeaders(self):
+        # This may be a common bug when "headers" is misinterpreted to
+        # be a dict:
+        self.assertRaises(
+            TypeError,
+            server.Response, 200, 'ok', {}, self.FakeBodyProducer())
+
+    def test_invalidResponseConstructionWithNonProducer(self):
+        # Succeeds if no exception is raised:
+        self.assertRaises(
+            TypeError,
+            server.Response, 200, 'ok', Headers(),
+            'a banana does not provide IBodyProducer')
 
 
 class RequestHandlerDelegateTest(unittest.TestCase):
