@@ -1,9 +1,51 @@
+import urlparse
 from twisted.trial import unittest
+from twisted.test import proto_helpers
 from twisted.internet.defer import succeed
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 from txhttp import server
 from zope.interface import implements
+
+
+class HTTPServerProtocolTests(unittest.TestCase):
+    def setUp(self):
+
+        self.receivedRequest = None
+
+        @server.RequestHandlerDelegate
+        def requestReceived(method, url, version, headers, body):
+            self.assertIsInstance(method, bytes)
+            self.assertIsInstance(url, urlparse.ParseResult)
+            self.assertIsInstance(version, bytes)
+            self.assertIsInstance(headers, Headers)
+            self.assertTrue(IBodyProducer.providedBy(body))
+
+            self.receivedRequest = (method, url, version, headers, body)
+
+        factory = server.HTTPServerFactory(requestReceived)
+        self.proto = factory.buildProtocol(('127.0.0.1', 0))
+        self.st = proto_helpers.StringTransport()
+        self.proto.makeConnection(self.st)
+
+    def test_basic_requestReceived(self):
+        buf = (
+            'GET / HTTP/1.0\r\n'
+            '\r\n'
+            'bananas!'
+            )
+
+        self.proto.dataReceived(buf)
+
+        expected = (
+            'GET',
+            urlparse.ParseResult(path='/fruit'),
+            'HTTP/1.0',
+            Headers(),
+            'FIXME',
+            )
+
+        self.assertEqual(expected, self.receivedRequest)
 
 
 class ResponseTests(unittest.TestCase):

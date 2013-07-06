@@ -22,7 +22,7 @@ This differs from C{twisted.web.http} in these ways:
 
 from abc import ABCMeta, abstractmethod
 from cStringIO import StringIO
-from twisted.internet import defer
+from twisted.internet import defer, protocol
 from twisted.protocols import basic
 from twisted.internet.interfaces import IConsumer
 from twisted.web.http_headers import Headers
@@ -33,12 +33,8 @@ from zope.interface import Interface, implements
 
 class HTTPServerProtocol(basic.LineReceiver):
 
-    def __init__(self, handleRequest):
-        """
-        @type handleRequest: C{IRequestHandler}
-        @param handleRequest: The request handler for all requests.
-        """
-        self._handleRequest = IRequestHandler(handleRequest)
+    def connectionMade(self):
+        self._handleRequest = self.factory.requestHandler
 
         # Note: Only self.lineReceived should touch this:
         self._pendingHead = None
@@ -78,6 +74,15 @@ class HTTPServerProtocol(basic.LineReceiver):
 
     def _disaptchRequestHead(self, method, urlpath, version, headers):
         raise NotImplementedError(repr((self._dispatchRequestHead, method, urlpath, version, headers)))
+
+
+
+class HTTPServerFactory(protocol.Factory):
+
+    protocol = HTTPServerProtocol
+
+    def __init__(self, requestHandler):
+        self.requestHandler = IRequestHandler(requestHandler)
 
 
 
