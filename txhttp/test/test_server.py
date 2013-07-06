@@ -3,41 +3,27 @@ from twisted.internet.defer import succeed
 from txhttp import server
 
 
-class IgnoreBodyTest(unittest.TestCase):
-    def test_IgnoreBody(self):
+class ConsumerTest(unittest.TestCase):
+    def _testConsumer(self, cls, input, expected):
         self.succeeded = False
 
-        def checkResult(nothing):
-            self.assertIsNone(nothing)
+        def checkResult(result):
+            self.assertEqual(expected, result)
             self.succeeded = True
 
         fakeProducer = None
 
-        ib = server.IgnoreBody()
+        ib = cls()
         ib.done.addCallback(checkResult)
         ib.registerProducer(fakeProducer, True)
-        ib.write('ignored')
+        ib.write(input)
         ib.unregisterProducer()
 
         return succeed(self.succeeded)
 
+    def test_IgnoreBody(self):
+        return self._testConsumer(server.IgnoreBody, 'blah blah', None)
 
-class GatherBodyStringTest(unittest.TestCase):
     def test_GatherBodyString(self):
         testVector = 'some test data'
-
-        self.succeeded = False
-
-        def checkResult(buf):
-            self.assertEqual(testVector, buf)
-            self.succeeded = True
-
-        fakeProducer = None
-
-        ib = server.GatherBodyString()
-        ib.done.addCallback(checkResult)
-        ib.registerProducer(fakeProducer, True)
-        ib.write(testVector)
-        ib.unregisterProducer()
-
-        return succeed(self.succeeded)
+        return self._testConsumer(server.GatherBodyString, testVector, testVector)
