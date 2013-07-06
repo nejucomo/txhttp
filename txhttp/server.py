@@ -20,6 +20,7 @@ This differs from C{twisted.web.http} in these ways:
 # http://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html
 
 
+from abc import ABCMeta, abstractmethod
 from cStringIO import StringIO
 from twisted.internet import defer
 from twisted.protocols import basic
@@ -129,7 +130,11 @@ class RequestHandlerDelegate(object):
 
 
 ### Common body consumers:
-class IgnoreBody(object):
+class GatherConsumer(object):
+    """
+    I am an IConsumer which gathers the input and fires done with some result.
+    """
+    __metaclass__ = ABCMeta
     implements(IConsumer)
 
     def __init__(self):
@@ -139,24 +144,28 @@ class IgnoreBody(object):
         assert streaming == True, 'Only IPushProducer is supported, not %r' % (producer,)
 
     def unregisterProducer(self):
-        self.done.callback(None)
+        self.done.callback(self._gatherResult())
 
     def write(self, data):
-        pass # Ignore data.
+        pass
+
+    @abstractmethod
+    def _gatherResult(self):
+        """Return the result of consuming the input."""
 
 
-class GatherBodyString(object):
-    implements(IConsumer)
+class IgnoreBody(GatherConsumer):
+    def _gatherResult(self):
+        return None
 
+
+class GatherBodyString(GatherConsumer):
     def __init__(self):
-        self.done = defer.Deferred()
+        GatherConsumer.__init__(self)
         self._f = StringIO()
-
-    def registerProducer(self, producer, streaming):
-        assert streaming, 'Only IPushProducer is supported, not %r' % (producer,)
-
-    def unregisterProducer(self):
-        self.done.callback(self._f.getvalue())
 
     def write(self, data):
         self._f.write(data)
+
+    def _gatherResult(self):
+        return self._f.getvalue()
