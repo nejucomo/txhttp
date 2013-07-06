@@ -101,7 +101,8 @@ class IRequestHandler(Interface):
 
 class Response(object):
     def __init__(self, code, status, headers, bodyProducer):
-        assert isinstance(headers, Headers), 'Expected Headers instance; found %r' % (headers,)
+        if not isinstance(headers, Headers):
+            raise TypeError('Expected Headers instance; found %r' % (headers,))
 
         self.code = code
         self.status = status
