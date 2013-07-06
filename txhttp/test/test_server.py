@@ -6,7 +6,7 @@ from txhttp import server
 from zope.interface import implements
 
 
-class ResponseTest(unittest.TestCase):
+class ResponseTests(unittest.TestCase):
 
     class FakeBodyProducer(object):
         implements(IBodyProducer)
@@ -31,7 +31,7 @@ class ResponseTest(unittest.TestCase):
             'a banana does not provide IBodyProducer')
 
 
-class RequestHandlerDelegateTest(unittest.TestCase):
+class RequestHandlerDelegateTests(unittest.TestCase):
     def setUp(self):
         @server.RequestHandlerDelegate
         def echo(*a):
@@ -47,7 +47,7 @@ class RequestHandlerDelegateTest(unittest.TestCase):
         self.assertEqual(args, self.echo.requestReceived(*args))
 
 
-class ConsumerTest(unittest.TestCase):
+class ConsumerTests(unittest.TestCase):
     def _testConsumer(self, cls, input, expected):
         self.succeeded = False
 
