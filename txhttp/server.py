@@ -145,7 +145,7 @@ class IgnoreBody(object):
         pass # Ignore data.
 
 
-class GatherBodyAsString(object):
+class GatherBodyString(object):
     implements(IConsumer)
 
     def __init__(self):

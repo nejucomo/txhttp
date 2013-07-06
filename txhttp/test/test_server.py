@@ -20,3 +20,24 @@ class IgnoreBodyTest(unittest.TestCase):
         ib.unregisterProducer()
 
         return succeed(self.succeeded)
+
+
+class GatherBodyStringTest(unittest.TestCase):
+    def test_GatherBodyString(self):
+        testVector = 'some test data'
+
+        self.succeeded = False
+
+        def checkResult(buf):
+            self.assertEqual(testVector, buf)
+            self.succeeded = True
+
+        fakeProducer = None
+
+        ib = server.GatherBodyString()
+        ib.done.addCallback(checkResult)
+        ib.registerProducer(fakeProducer, True)
+        ib.write(testVector)
+        ib.unregisterProducer()
+
+        return succeed(self.succeeded)
