@@ -16,8 +16,11 @@ This differs from C{twisted.web.http} in these ways:
 """
 
 
-from twisted.internet import basic
+from cStringIO import StringIO
+from twisted.internet import basic, defer
+from twisted.internet.interfaces import IConsumer
 from twisted.web.http_headers import Headers
+from twisted.web.iweb import IBodyProducer
 from zope.interface import Interface, implements
 
 
@@ -77,40 +80,27 @@ class IRequestHandler(Interface):
     """
     I handle HTTP requests.
     """
-    def requestHeadReceived(responder, method, path, version, headers):
+    def requestReceived(method, url, version, headers, body):
         """
-        @type responder: C{IResponder}
-        @param responder: The facet for responding to this request.
-
-        @type method: C{str}
-        @type path: C{str}
-        @type version: C{str}
+        @type method: C{bytes}
+        @type url: C{urlparse.ParseResult}
+        @type version: C{bytes}
         @type headers: C{twisted.web.http_headers.Headers}
+        @type body: C{IBodyProducer}
 
-        @return: A C{Deferred} which fires to an C{IConsumer} to consume
-                 the raw request body bytes.
-
-        Note: Either the caller or callee may determine that a
-        request body is complete.  The caller signifies this by
-        calling C{IConsumer.unregisterProducer} on the returned
-        body consumer.  The callee signifies this by invoking
-        C{responder.sendResponseHead}.
+        @return: A C{Deferred} C{Response}.
         """
 
 
 
-class IResponder(Interface):
-    """
-    I respond to a single HTTP request.
-    """
-    def sendResponseHead(statusCode, statusMessage, headers):
-        """
-        @type responseHead: C{ResponseHead}
-        @param responseHead: The ResponseHead that resulted from a request.
+class Response(object):
+    def __init__(self, code, status, headers, bodyProducer):
+        assert isinstance(headers, Headers), 'Expected Headers instance; found %r' % (headers,)
 
-        @return: A C{Deferred} which fires to an C{IConsumer} to consume
-                 the raw response body bytes.
-        """
+        self.code = code
+        self.status = status
+        self.headers = headers
+        self.bodyProducer = IBodyProducer(bodyProducer)
 
 
 
@@ -125,31 +115,43 @@ class RequestHandlerDelegate(object):
 
     def __init__(self, f):
         """
-        @type f: a function with the same interface as IRequestHandler.requestHeadReceived
+        @type f: a function with the same interface as IRequestHandler.requestReceived
         """
         self.delegate = f
 
-    def requestHeadReceived(self, responder, method, path, version, headers):
+    def requestReceived(self, responder, method, path, version, headers):
         return self.delegate(responder, method, path, version, headers)
 
 
+### Common body consumers:
+class IgnoreBody(object):
+    implements(IConsumer)
 
-class ResponderDelegate(object):
-    """
-    I implement IResponder by delegating to a function.
+    def __init__(self):
+        self.done = defer.Deferred()
 
-    Useful as a decorator.
-    """
-    implements(IResponder)
+    def registerProducer(self, producer, streaming):
+        assert streaming, 'Only IPushProducer is supported, not %r' % (producer,)
 
-    def __init__(self, f):
-        """
-        @type f: a function with the same interface as IResponder.sendResponseHead
-        """
-        self.delegate = f
+    def unregisterProducer(self):
+        self.done.callback(None)
 
-    def sendResponseHead(self, statusCode, statusMessage, headers):
-        return self.delegate(statusCode, statusMessage, headers)
+    def write(self, data):
+        pass # Ignore data.
 
 
+class GatherBodyAsString(object):
+    implements(IConsumer)
 
+    def __init__(self):
+        self.done = defer.Deferred()
+        self._f = StringIO()
+
+    def registerProducer(self, producer, streaming):
+        assert streaming, 'Only IPushProducer is supported, not %r' % (producer,)
+
+    def unregisterProducer(self):
+        self.done.callback(self._f.getvalue())
+
+    def write(self, data):
+        self._f.write(data)
